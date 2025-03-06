@@ -1,0 +1,20 @@
+..\output\oled.o: ..\hardware\src\oled.c
+..\output\oled.o: ..\hardware\inc\oled.h
+..\output\oled.o: ..\core\stm32f10x.h
+..\output\oled.o: ..\core\core_cm3.h
+..\output\oled.o: E:\Program Files\Keil5\ARM\ARMCC\Bin\..\include\stdint.h
+..\output\oled.o: ..\core\system_stm32f10x.h
+..\output\oled.o: ..\core\stm32f10x_conf.h
+..\output\oled.o: ..\fwlib\inc\stm32f10x_adc.h
+..\output\oled.o: ..\core\stm32f10x.h
+..\output\oled.o: ..\fwlib\inc\stm32f10x_exti.h
+..\output\oled.o: ..\fwlib\inc\stm32f10x_fsmc.h
+..\output\oled.o: ..\fwlib\inc\stm32f10x_gpio.h
+..\output\oled.o: ..\fwlib\inc\stm32f10x_i2c.h
+..\output\oled.o: ..\fwlib\inc\stm32f10x_rcc.h
+..\output\oled.o: ..\fwlib\inc\stm32f10x_spi.h
+..\output\oled.o: ..\fwlib\inc\stm32f10x_tim.h
+..\output\oled.o: ..\fwlib\inc\stm32f10x_usart.h
+..\output\oled.o: ..\fwlib\inc\misc.h
+..\output\oled.o: ..\hardware\inc\delay.h
+..\output\oled.o: ..\hardware\inc\oledfont.h

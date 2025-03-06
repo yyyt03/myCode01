@@ -1,0 +1,71 @@
+<html>
+<body>
+<pre>
+<h1>礦ision Build Log</h1>
+<h2>Tool Versions:</h2>
+IDE-Version: μVision V5.36.0.0
+Copyright (C) 2021 ARM Ltd and ARM Germany GmbH. All rights reserved.
+License Information: 1 Administrator, 1, LIC=CZLZX-H4DP7-KPAZY-ILPGA-37TGM-JBR9W
+ 
+Tool Versions:
+Toolchain:       MDK-ARM Plus  Version: 5.36.0.0
+Toolchain Path:  E:\Program Files\Keil5\ARM\ARMCC\Bin
+C Compiler:      Armcc.exe V5.06 update 7 (build 960)
+Assembler:       Armasm.exe V5.06 update 7 (build 960)
+Linker/Locator:  ArmLink.exe V5.06 update 7 (build 960)
+Library Manager: ArmAr.exe V5.06 update 7 (build 960)
+Hex Converter:   FromElf.exe V5.06 update 7 (build 960)
+CPU DLL:         SARMCM3.DLL V5.36.0.0
+Dialog DLL:      DCM.DLL V1.17.3.0
+Target DLL:      STLink\ST-LINKIII-KEIL_SWO.dll V3.0.9.0
+Dialog DLL:      TCM.DLL V1.53.0.0
+ 
+<h2>Project:</h2>
+e:\data\TEST\BY\之后。\毕设\物联网Demo\2.0 下位机0305网络调试2\user\06_onenet_subcribe_led_test.uvprojx
+Project File Date:  02/22/2025
+
+<h2>Output:</h2>
+*** Using Compiler 'V5.06 update 7 (build 960)', folder: 'E:\Program Files\Keil5\ARM\ARMCC\Bin'
+Build target 'Target 1'
+compiling stm32f10x_it.c...
+main.h(16): warning:  #1-D: last line of file ends without a newline
+  #endif
+stm32f10x_it.c: 1 warning, 0 errors
+compiling main.c...
+..\hardware\sys\sys.h(83): warning:  #1-D: last line of file ends without a newline
+  #endif
+main.c(352): warning:  #1-D: last line of file ends without a newline
+  }
+main.c(208): warning:  #177-D: variable "last_second"  was declared but never referenced
+      uint32_t last_second = 0;
+main.c: 3 warnings, 0 errors
+compiling esp8266.c...
+..\NET\device\src\esp8266.c(448): warning:  #1-D: last line of file ends without a newline
+  }
+..\NET\device\src\esp8266.c: 1 warning, 0 errors
+compiling onenet.c...
+..\hardware\sys\sys.h(83): warning:  #1-D: last line of file ends without a newline
+  #endif
+..\NET\onenet\src\onenet.c(405): warning:  #111-D: statement is unreachable
+  	UsartPrintf(USART_DEBUG, "[NET] Global angle=%d\r\n", angle);
+..\NET\onenet\src\onenet.c: 2 warnings, 0 errors
+linking...
+Program Size: Code=31656 RO-data=7176 RW-data=104 ZI-data=2760  
+FromELF: creating hex file...
+"..\output\04_esp8666_linkonenet_test.axf" - 0 Error(s), 7 Warning(s).
+
+<h2>Software Packages used:</h2>
+
+Package Vendor: Keil
+                https://www.keil.com/pack/Keil.STM32F1xx_DFP.2.4.1.pack
+                Keil.STM32F1xx_DFP.2.4.1
+                STMicroelectronics STM32F1 Series Device Support, Drivers and Examples
+
+<h2>Collection of Component include folders:</h2>
+  E:\Program Files\Keil5Pack\Keil\STM32F1xx_DFP\2.4.1\Device\Include
+
+<h2>Collection of Component Files used:</h2>
+Build Time Elapsed:  00:00:02
+</pre>
+</body>
+</html>

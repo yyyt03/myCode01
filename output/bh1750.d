@@ -1,0 +1,21 @@
+..\output\bh1750.o: ..\hardware\BH1750\bh1750.c
+..\output\bh1750.o: ..\hardware\BH1750\bh1750.h
+..\output\bh1750.o: ..\hardware\BH1750\myiic.h
+..\output\bh1750.o: ..\hardware\sys\sys.h
+..\output\bh1750.o: ..\core\stm32f10x.h
+..\output\bh1750.o: ..\core\core_cm3.h
+..\output\bh1750.o: E:\Program Files\Keil5\ARM\ARMCC\Bin\..\include\stdint.h
+..\output\bh1750.o: ..\core\system_stm32f10x.h
+..\output\bh1750.o: ..\core\stm32f10x_conf.h
+..\output\bh1750.o: ..\fwlib\inc\stm32f10x_adc.h
+..\output\bh1750.o: ..\core\stm32f10x.h
+..\output\bh1750.o: ..\fwlib\inc\stm32f10x_exti.h
+..\output\bh1750.o: ..\fwlib\inc\stm32f10x_fsmc.h
+..\output\bh1750.o: ..\fwlib\inc\stm32f10x_gpio.h
+..\output\bh1750.o: ..\fwlib\inc\stm32f10x_i2c.h
+..\output\bh1750.o: ..\fwlib\inc\stm32f10x_rcc.h
+..\output\bh1750.o: ..\fwlib\inc\stm32f10x_spi.h
+..\output\bh1750.o: ..\fwlib\inc\stm32f10x_tim.h
+..\output\bh1750.o: ..\fwlib\inc\stm32f10x_usart.h
+..\output\bh1750.o: ..\fwlib\inc\misc.h
+..\output\bh1750.o: ..\hardware\inc\delay.h

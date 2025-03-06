@@ -1,0 +1,21 @@
+..\output\myiic.o: ..\hardware\BH1750\myiic.c
+..\output\myiic.o: ..\hardware\BH1750\myiic.h
+..\output\myiic.o: ..\hardware\sys\sys.h
+..\output\myiic.o: ..\core\stm32f10x.h
+..\output\myiic.o: ..\core\core_cm3.h
+..\output\myiic.o: E:\Program Files\Keil5\ARM\ARMCC\Bin\..\include\stdint.h
+..\output\myiic.o: ..\core\system_stm32f10x.h
+..\output\myiic.o: ..\core\stm32f10x_conf.h
+..\output\myiic.o: ..\fwlib\inc\stm32f10x_adc.h
+..\output\myiic.o: ..\core\stm32f10x.h
+..\output\myiic.o: ..\fwlib\inc\stm32f10x_exti.h
+..\output\myiic.o: ..\fwlib\inc\stm32f10x_fsmc.h
+..\output\myiic.o: ..\fwlib\inc\stm32f10x_gpio.h
+..\output\myiic.o: ..\fwlib\inc\stm32f10x_i2c.h
+..\output\myiic.o: ..\fwlib\inc\stm32f10x_rcc.h
+..\output\myiic.o: ..\fwlib\inc\stm32f10x_spi.h
+..\output\myiic.o: ..\fwlib\inc\stm32f10x_tim.h
+..\output\myiic.o: ..\fwlib\inc\stm32f10x_usart.h
+..\output\myiic.o: ..\fwlib\inc\misc.h
+..\output\myiic.o: ..\hardware\inc\delay.h
+..\output\myiic.o: ..\hardware\inc\usart.h
