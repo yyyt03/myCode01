@@ -108,11 +108,20 @@ void Hardware_Init(void)
     
     Init_BH1750();                  // 初始化BH1750光照传感器
     delayms(200); // 等待传感器稳定
+    bh_data_send(BHPowOn);          // 发送上电指令
+    delayms(10);
+    bh_data_send(BHReset);          // 发送复位指令
+    delayms(10);
+    bh_data_send(BHModeH1);         // 配置为高精度模式
+    delayms(180);                   // 等待第一次测量完成
+    
     float init_light = bh_data_read() / 1.2;
-    if(init_light > 0) {
-        UsartPrintf(USART_DEBUG, "[INIT] BH1750 OK, Initial light=%.0f lux\r\n", init_light);
+    if(init_light > 0 && init_light < 10000) {
+        UsartPrintf(USART_DEBUG, "[INIT] BH1750 OK, Initial light=%.1f lux\r\n", init_light);
+        light_value = init_light;   // 保存初始读数
     } else {
-        UsartPrintf(USART_DEBUG, "[INIT] WARNING: BH1750 may not working\r\n");
+        UsartPrintf(USART_DEBUG, "[INIT] WARNING: BH1750 may not working, reading=%.1f\r\n", init_light);
+        light_value = 100.0;        // 设置一个默认值
     }
     
     bh_data_send(BHPowOn);          // 发送上电指令
@@ -498,6 +507,36 @@ void ProcessMenuOperation(uint8_t key_id, uint8_t press_type)
     }
 }
 
+// 新增BH1750可靠性读取函数
+float ReadBH1750Light(void)
+{
+    uint8_t retry_count = 0;
+    float light_reading = 0;
+    
+    while(retry_count < 3) {  // 最多重试3次
+        bh_data_send(BHReset);      // 重置传感器
+        delayms(10);
+        bh_data_send(BHModeH1);     // 高精度模式
+        delayms(180);               // 等待测量完成
+        
+        light_reading = bh_data_read() / 1.2;
+        
+        if(light_reading > 0 && light_reading < 10000) {
+            UsartPrintf(USART_DEBUG, "[BH1750] Valid reading: %.1f lux\r\n", light_reading);
+            return light_reading;
+        }
+        
+        retry_count++;
+        UsartPrintf(USART_DEBUG, "[BH1750] Invalid reading (%.1f), retry %d/3\r\n", 
+                   light_reading, retry_count);
+        delayms(50);  // 短暂延时后重试
+    }
+    
+    // 所有重试都失败，返回上次有效值
+    UsartPrintf(USART_DEBUG, "[BH1750] All retries failed, keeping last valid: %.1f lux\r\n", light_value);
+    return light_value;  // 保持上次有效值
+}
+
 /*
 ************************************************************
 *	函数名称：	main
@@ -604,19 +643,30 @@ int main(void)
         // 使用中断设置的标志更新时钟，更准确
         if(clock_update_flag)
         {
+            static uint8_t last_minute = 0xff;  // 记录上一次更新的分钟
+            
             clock_update_flag = 0;  // 清除标志
             UpdateClock();          // 更新时钟
             
             // 更新时间显示
             if(ntp_time.is_valid && ntp_time.year >= 2000) {
-                sprintf(time_str, "%04d-%02d-%02d", ntp_time.year, ntp_time.month, ntp_time.day);
-                OLED_ShowStr(0,0,(uint8_t *)time_str,1);
-                sprintf(time_str, "%02d:%02d:%02d", ntp_time.hour, ntp_time.minute, ntp_time.second);
-                OLED_ShowStr(64,0,(uint8_t *)time_str,1);
-                
-                // 调试输出当前时间
-                UsartPrintf(USART_DEBUG, "[TIME] %02d:%02d:%02d\r\n", 
-                            ntp_time.hour, ntp_time.minute, ntp_time.second);
+                // 只在分钟变化时才更新显示和输出日志
+                if(ntp_time.minute != last_minute) {
+                    sprintf(time_str, "%04d-%02d-%02d", ntp_time.year, ntp_time.month, ntp_time.day);
+                    OLED_ShowStr(0,0,(uint8_t *)time_str,1);
+                    sprintf(time_str, "%02d:%02d:%02d", ntp_time.hour, ntp_time.minute, ntp_time.second);
+                    OLED_ShowStr(64,0,(uint8_t *)time_str,1);
+                    
+                    // 只有在分钟变化时才输出时间日志
+                    UsartPrintf(USART_DEBUG, "[TIME] %02d:%02d:%02d\r\n", 
+                               ntp_time.hour, ntp_time.minute, ntp_time.second);
+                    
+                    last_minute = ntp_time.minute;  // 更新上次分钟记录
+                } else {
+                    // 秒数变化仅更新显示，不打印日志
+                    sprintf(time_str, "%02d:%02d:%02d", ntp_time.hour, ntp_time.minute, ntp_time.second);
+                    OLED_ShowStr(64,0,(uint8_t *)time_str,1);
+                }
             } else {
                 // 如果时间无效，显示等待NTP同步的信息
                 OLED_ShowStr(0,0,(uint8_t *)"Wait NTP Sync",1);
@@ -722,49 +772,41 @@ int main(void)
         if(index_bh1750)
         {
             UsartPrintf(USART_DEBUG, "[BH1750] Starting read...\r\n");
-    
-            // 更可靠的读取方法
-            bh_data_send(BHReset);   // 重置传感器
-            delayms(10);
-            bh_data_send(BHModeH1);  // 配置为高精度模式
-            delayms(180);           // 传感器需要时间进行测量
             
-            float new_light = bh_data_read() / 1.2;
+            // 使用新的可靠性读取函数
+            float new_light = ReadBH1750Light();
             
-            // 检查读取值是否合理
-            if(new_light > 0 && new_light < 10000) {
-                light_value = new_light;
-                UsartPrintf(USART_DEBUG, "[LIGHT] Valid reading: %.1f lux\r\n", light_value);
-                
-                // 立即更新显示
-                if(current_menu == MENU_NONE) {
-                    sprintf(light_info, "Lux:%-5.0f", light_value);
-                    OLED_ShowStr(0, LINE_LIGHT, (uint8_t *)light_info, 2);
-                }
-                
-                // 处理AUTO和TIMELOCK模式
-                if(work_mode == AUTO_MODE || 
-                  (work_mode == TIMELOCK_MODE && !IsInTimeSchedule())) {
-                    uint8_t new_angle = LightToFixedAngle(light_value);
-                    if(angle != new_angle) {
-                        angle = new_angle;
-                        pwm = AngleToPWM(angle);
-                        TIM_SetCompare1(TIM2, pwm);
-                        TIM_SetCompare2(TIM2, pwm);
-                        
-                        // 更新角度显示
-                        if(current_menu == MENU_NONE) {
-                            char angle_str[16];
-                            sprintf(angle_str, "Angle:%3d", angle); 
-                            OLED_ShowStr(0, LINE_ANGLE, (uint8_t *)angle_str, 2);
-                        }
-                    }
-                }
-            } else {
-                UsartPrintf(USART_DEBUG, "[ERROR] Failed to get valid BH1750 readings!\r\n");
+            // 更新光照值
+            light_value = new_light;
+            
+            // 立即更新显示
+            if(current_menu == MENU_NONE) {
+                sprintf(light_info, "Lux:%-5.0f", light_value);
+                OLED_ShowStr(0, LINE_LIGHT, (uint8_t *)light_info, 2);
             }
             
-            index_bh1750 = 0;  // 无论成功失败，都复位标志
+            // 处理AUTO和TIMELOCK模式
+            if(work_mode == AUTO_MODE || 
+               (work_mode == TIMELOCK_MODE && !IsInTimeSchedule())) {
+                uint8_t new_angle = LightToFixedAngle(light_value);
+                if(angle != new_angle) {
+                    angle = new_angle;
+                    pwm = AngleToPWM(angle);
+                    TIM_SetCompare1(TIM2, pwm);
+                    TIM_SetCompare2(TIM2, pwm);
+                    
+                    // 更新角度显示
+                    if(current_menu == MENU_NONE) {
+                        char angle_str[16];
+                        sprintf(angle_str, "Angle:%3d", angle); 
+                        OLED_ShowStr(0, LINE_ANGLE, (uint8_t *)angle_str, 2);
+                    }
+                    
+                    UsartPrintf(USART_DEBUG, "[AUTO] New angle: %d, PWM: %d\r\n", angle, pwm);
+                }
+            }
+            
+            index_bh1750 = 0;  // 复位标志
         }
         
         if(index_duoji)
@@ -790,19 +832,19 @@ int main(void)
 			OneNet_RevPro(dataPtr);
 		
         // 简化定时器触发逻辑
-        // 每50ms递增一次计数器
+        // 每10ms递增一次计数器
         tick++;
 
-        // 直接触发光照读取，不使用条件判断
-        if(tick % 20 == 0 && !index_bh1750) { // 每200ms
+        // 每秒触发一次光照读取（100*10ms=1000ms）
+        if(tick % 100 == 0 && !index_bh1750) {
             index_bh1750 = 1;
-            UsartPrintf(USART_DEBUG, "[TRIGGER] BH1750 read triggered\r\n");
+            UsartPrintf(USART_DEBUG, "[TRIGGER] BH1750 read scheduled\r\n");
         }
 
-        // 每500ms更新一次调试信息
-        if(tick % 50 == 0) {
-            UsartPrintf(USART_DEBUG, "[STATUS] Tick=%lu light=%.1f mode=%d\r\n", 
-                    tick, light_value, work_mode);
+        // 每5秒输出一次调试信息
+        if(tick % 500 == 0) {
+            UsartPrintf(USART_DEBUG, "[STATUS] Tick=%lu light=%.1f angle=%d mode=%d\r\n", 
+                        tick, light_value, angle, work_mode);
         }
 
         delayms(10); // 10ms延时
