@@ -16,3 +16,5 @@
 ..\output\key.o: ..\fwlib\inc\stm32f10x_tim.h
 ..\output\key.o: ..\fwlib\inc\stm32f10x_usart.h
 ..\output\key.o: ..\fwlib\inc\misc.h
+..\output\key.o: ..\hardware\inc\delay.h
+..\output\key.o: ..\hardware\inc\usart.h

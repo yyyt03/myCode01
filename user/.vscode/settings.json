@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "main.h": "c",
+        "esp8266.h": "c",
+        "sys.h": "c"
+    }
+}

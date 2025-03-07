@@ -25,5 +25,6 @@
 ..\output\main.o: ..\hardware\inc\key.h
 ..\output\main.o: ..\NET\onenet\inc\onenet.h
 ..\output\main.o: ..\NET\device\inc\esp8266.h
+..\output\main.o: main.h
 ..\output\main.o: E:\Program Files\Keil5\ARM\ARMCC\Bin\..\include\string.h
 ..\output\main.o: E:\Program Files\Keil5\ARM\ARMCC\Bin\..\include\stdio.h

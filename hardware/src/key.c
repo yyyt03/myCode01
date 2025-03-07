@@ -1,8 +1,19 @@
 #include "key.h"
-
+#include "delay.h"
+#include "usart.h"
 //定义全局变量
-uint8_t index_key;//按键扫描时间片
-uint8_t key_num; //按键值0~5
+uint8_t index_key = 0;  // 按键扫描标志
+uint8_t key_num = 0;    // 按键编号
+
+// 新增变量：按键持续按下时间计数
+static uint16_t key1_press_time = 0;
+static uint16_t key2_press_time = 0;
+static uint16_t key3_press_time = 0;
+
+// 新增变量：按键当前状态
+static uint8_t key1_state = 0;  // 0=释放，1=按下未处理
+static uint8_t key2_state = 0;
+static uint8_t key3_state = 0;
 
 //beep端口初始化
 void beep_Init(void)
@@ -26,7 +37,7 @@ void key_Init(void)
 	beep_Init();
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_key12,ENABLE);
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_key345,ENABLE);
-  RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO,ENABLE);
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO,ENABLE);
 	//PB3 上电后默认JTDO，用于JTAG，要把JTAG关闭，使用SW方式！！！
 	GPIO_PinRemapConfig(GPIO_Remap_SWJ_JTAGDisable,ENABLE);	
 	
@@ -103,33 +114,111 @@ uint8_t key_Scan(void)
 相关函数：调key_Scan()
 */
 void key_Functoin(void)
-{ unsigned char temp1; 	
-	temp1=key_Scan();
-   if(temp1!=0)//当有按键按下时
-	 {	    
-			switch(temp1)//根据不同的按键进行不同的功能处理
-			{
-			case 1:{
-						key_num=1;
-						break;		
-						}
-			case 2:{
-						key_num=2;
-						break;		
-						}
-			 case 3:{
-						key_num=3;
-						break;		
-						}
-			 case 4:{
-						key_num=4;
-						break;		
-						}
-			 case 5:{
-						key_num=5;
-						break;		
-						}
-			default:key_num=0; break;
-			}	
-	}
-} 
+{
+    if(!index_key) return;  // 只在定时器中断后处理
+    index_key = 0;          // 复位标志
+    
+    // 按键1处理(模式切换键)
+    if(GPIO_ReadInputDataBit(KEY1_PORT, KEY1_PIN) == 0) {  // 低电平表示按下
+        if(key1_state == 0) {  // 首次按下
+            key1_state = 1;
+            key1_press_time = 0;
+            UsartPrintf(USART_DEBUG, "[KEY] KEY1 Pressed\r\n");
+            //GPIO_ResetBits(BEEP_PORT, BEEP_PIN);  // 蜂鸣器提示
+        } else {
+            key1_press_time++;
+            
+            // 调试输出计时器值，帮助诊断
+            if(key1_press_time % 20 == 0) {  
+                UsartPrintf(USART_DEBUG, "[KEY] KEY1 Holding: %d/%d\r\n", 
+                           key1_press_time, KEY_LONG_THRESHOLD);
+            }
+            
+            if(key1_press_time == KEY_LONG_THRESHOLD) {
+                key_num = 1 | KEY_LONG_PRESS;  // 按键1长按
+                UsartPrintf(USART_DEBUG, "[KEY] KEY1 Long Press TRIGGERED\r\n");
+                
+                // 立即处理长按事件，不等待释放
+                if(key_num != 0) {
+                    uint8_t key_id = key_num & KEY_NUM_MASK;
+                    uint8_t press_type = key_num & KEY_TYPE_MASK;
+                    UsartPrintf(USART_DEBUG, "[KEY] Processing now: %d %s\r\n", 
+                               key_id, (press_type == KEY_LONG_PRESS) ? "LONG" : "SHORT");
+                }
+            }
+        }
+    } else {  // 按键释放
+        if(key1_state == 1) {  // 之前是按下状态
+            if(key1_press_time < KEY_LONG_THRESHOLD) {
+                // 未达到长按阈值，触发短按事件
+                key_num = 1 | KEY_SHORT_PRESS;  // 按键1短按
+                UsartPrintf(USART_DEBUG, "[KEY] KEY1 Short Press\r\n");
+            }
+            key1_state = 0;  // 复位状态
+            key1_press_time = 0; // 重置计时器
+            GPIO_SetBits(BEEP_PORT, BEEP_PIN);  // 蜂鸣器关闭
+        }
+    }
+    
+    // 按键2处理(角度增加/时段设置) - 类似逻辑
+    if(GPIO_ReadInputDataBit(KEY2_PORT, KEY2_PIN) == 0) {
+        if(key2_state == 0) {
+            key2_state = 1;
+            key2_press_time = 0;
+            UsartPrintf(USART_DEBUG, "[KEY] KEY2 Pressed\r\n");
+        } else {
+            key2_press_time++;
+            
+            // 调试输出
+            if(key2_press_time % 20 == 0) {  
+                UsartPrintf(USART_DEBUG, "[KEY] KEY2 Holding: %d/%d\r\n", 
+                           key2_press_time, KEY_LONG_THRESHOLD);
+            }
+            
+            if(key2_press_time == KEY_LONG_THRESHOLD) {
+                key_num = 2 | KEY_LONG_PRESS;
+                UsartPrintf(USART_DEBUG, "[KEY] KEY2 Long Press TRIGGERED\r\n");
+            }
+        }
+    } else {
+        if(key2_state == 1) {
+            if(key2_press_time < KEY_LONG_THRESHOLD) {
+                key_num = 2 | KEY_SHORT_PRESS;
+                UsartPrintf(USART_DEBUG, "[KEY] KEY2 Short Press\r\n");
+            }
+            key2_state = 0;
+            key2_press_time = 0;
+        }
+    }
+    
+    // 按键3处理(角度减小/角度预设) - 类似逻辑
+    if(GPIO_ReadInputDataBit(KEY3_PORT, KEY3_PIN) == 0) {
+        if(key3_state == 0) {
+            key3_state = 1;
+            key3_press_time = 0;
+            UsartPrintf(USART_DEBUG, "[KEY] KEY3 Pressed\r\n");
+        } else {
+            key3_press_time++;
+            
+            // 调试输出
+            if(key3_press_time % 20 == 0) {  
+                UsartPrintf(USART_DEBUG, "[KEY] KEY3 Holding: %d/%d\r\n", 
+                           key3_press_time, KEY_LONG_THRESHOLD);
+            }
+            
+            if(key3_press_time == KEY_LONG_THRESHOLD) {
+                key_num = 3 | KEY_LONG_PRESS;
+                UsartPrintf(USART_DEBUG, "[KEY] KEY3 Long Press TRIGGERED\r\n");
+            }
+        }
+    } else {
+        if(key3_state == 1) {
+            if(key3_press_time < KEY_LONG_THRESHOLD) {
+                key_num = 3 | KEY_SHORT_PRESS;
+                UsartPrintf(USART_DEBUG, "[KEY] KEY3 Short Press\r\n");
+            }
+            key3_state = 0;
+            key3_press_time = 0;
+        }
+    }
+}

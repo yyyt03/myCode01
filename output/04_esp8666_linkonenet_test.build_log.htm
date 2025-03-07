@@ -21,38 +21,32 @@ Target DLL:      STLink\ST-LINKIII-KEIL_SWO.dll V3.0.9.0
 Dialog DLL:      TCM.DLL V1.53.0.0
  
 <h2>Project:</h2>
-e:\data\TEST\BY\之后。\毕设\物联网Demo\2.0 下位机0305网络调试2\user\06_onenet_subcribe_led_test.uvprojx
+e:\data\TEST\BY\之后。\毕设\物联网Demo\2.1 下位机0305 时间控制调试\user\06_onenet_subcribe_led_test.uvprojx
 Project File Date:  02/22/2025
 
 <h2>Output:</h2>
 *** Using Compiler 'V5.06 update 7 (build 960)', folder: 'E:\Program Files\Keil5\ARM\ARMCC\Bin'
 Build target 'Target 1'
-compiling stm32f10x_it.c...
-main.h(16): warning:  #1-D: last line of file ends without a newline
+compiling bh1750.c...
+..\hardware\sys\sys.h(85): warning:  #1-D: last line of file ends without a newline
   #endif
-stm32f10x_it.c: 1 warning, 0 errors
+..\hardware\BH1750\bh1750.c: 1 warning, 0 errors
 compiling main.c...
-..\hardware\sys\sys.h(83): warning:  #1-D: last line of file ends without a newline
+..\hardware\sys\sys.h(85): warning:  #1-D: last line of file ends without a newline
   #endif
-main.c(352): warning:  #1-D: last line of file ends without a newline
+main.h(39): warning:  #1-D: last line of file ends without a newline
+  #endif
+main.c(812): warning:  #1-D: last line of file ends without a newline
   }
-main.c(208): warning:  #177-D: variable "last_second"  was declared but never referenced
+main.c(537): warning:  #177-D: variable "last_second"  was declared but never referenced
       uint32_t last_second = 0;
-main.c: 3 warnings, 0 errors
-compiling esp8266.c...
-..\NET\device\src\esp8266.c(448): warning:  #1-D: last line of file ends without a newline
-  }
-..\NET\device\src\esp8266.c: 1 warning, 0 errors
-compiling onenet.c...
-..\hardware\sys\sys.h(83): warning:  #1-D: last line of file ends without a newline
-  #endif
-..\NET\onenet\src\onenet.c(405): warning:  #111-D: statement is unreachable
-  	UsartPrintf(USART_DEBUG, "[NET] Global angle=%d\r\n", angle);
-..\NET\onenet\src\onenet.c: 2 warnings, 0 errors
+main.c(541): warning:  #177-D: variable "bh1750_check_counter"  was declared but never referenced
+      static uint16_t bh1750_check_counter = 0;
+main.c: 5 warnings, 0 errors
 linking...
-Program Size: Code=31656 RO-data=7176 RW-data=104 ZI-data=2760  
+Program Size: Code=34984 RO-data=7176 RW-data=120 ZI-data=2760  
 FromELF: creating hex file...
-"..\output\04_esp8666_linkonenet_test.axf" - 0 Error(s), 7 Warning(s).
+"..\output\04_esp8666_linkonenet_test.axf" - 0 Error(s), 6 Warning(s).
 
 <h2>Software Packages used:</h2>
 
