@@ -29,6 +29,14 @@
 //    MANUAL_MODE
 //} SystemMode;
 
+// 定时控制结构体
+typedef struct {
+    uint8_t hour;     // 小时（0-23）
+    uint8_t minute;   // 分钟（0-59）
+    uint8_t angle;    // 角度（0-180）
+    uint8_t enabled;  // 是否启用（0-禁用，1-启用）
+} TimerControl;
+
 /* 全局变量声明 -----------------------------------------------------------*/
 uint8_t index_bh1750 = 0, index_duoji = 0; // 传感器和舵机的索引标志
 SystemMode work_mode = AUTO_MODE;         // 系统工作模式（自动/手动）
@@ -38,6 +46,10 @@ char light_info[16];                      // 光照度显示缓存
 float light_value = 0;                    // 实时光照强度值
 uint8_t angle = 0;                       // 当前目标角度
 char time_str[20]; // 时间显示缓存
+
+// 全局变量
+TimerControl timer_setting = {8, 0, 90, 0}; // 默认早8点，90度角，禁用
+uint8_t timer_setting_index = 0; // 设置项索引：0-小时，1-分钟，2-角度，3-启用状态
 
 // 在main.c文件开头加入外部变量声明
 extern volatile uint8_t clock_update_flag;
@@ -205,7 +217,7 @@ int main(void)
     
     // 将tick声明提前到函数开头，并移除clock_tick
     uint32_t tick = 0;
-    uint32_t last_second = 0;
+    // uint32_t last_second = 0;
     uint8_t pwm = 100;
     
     Hardware_Init();        // 硬件初始化（含外设）
@@ -252,6 +264,22 @@ int main(void)
                 // 如果时间无效，显示等待NTP同步的信息
                 OLED_ShowStr(0,0,(uint8_t *)"Wait NTP Sync",1);
             }
+
+                // 定时控制逻辑
+                if(timer_setting.enabled) {
+                    // 检查当前时间是否匹配定时设置
+                    if(ntp_time.hour == timer_setting.hour && ntp_time.minute == timer_setting.minute) {
+                        // 达到设定时间，执行角度调整
+                        angle = timer_setting.angle;
+                        pwm = AngleToPWM(angle);
+                        TIM_SetCompare1(TIM2, pwm);
+                        TIM_SetCompare2(TIM2, pwm);
+                        
+                        // 调试输出
+                        UsartPrintf(USART_DEBUG, "[TIMER] Activated at %02d:%02d, angle=%d\r\n",
+                                timer_setting.hour, timer_setting.minute, timer_setting.angle);
+                    }
+                }
         }
         
         // 其余代码保持不变...
@@ -260,22 +288,75 @@ int main(void)
         {
             switch(key_num)
             {
-            case 1: // 模式切换
-                work_mode = (work_mode == AUTO_MODE) ? MANUAL_MODE : AUTO_MODE;
+            case 1: // 模式切换（AUTO->MANUAL->TIMER->AUTO）
+                if(work_mode == AUTO_MODE) 
+                    work_mode = MANUAL_MODE;
+                else if(work_mode == MANUAL_MODE) 
+                    work_mode = TIMER_MODE;
+                else 
+                    work_mode = AUTO_MODE;
+                    
                 if(work_mode == MANUAL_MODE) manual_angle = 90;
+                timer_setting_index = 0; // 切换到定时模式时重置设置索引
                 break;
                 
-            case 2: // 角度+ANGLE_STEP
-                if(work_mode == MANUAL_MODE) 
-                {
+            case 2: // 功能键
+                if(work_mode == MANUAL_MODE) {
+                    // 现有的手动模式角度增加功能
                     manual_angle = (manual_angle >= 180) ? 0 : manual_angle + ANGLE_STEP;
                 }
+                else if(work_mode == TIMER_MODE) {
+                    // 在定时模式下循环切换设置项
+                    timer_setting_index = (timer_setting_index + 1) % 4;
+                }
                 break;
-
-            case 3: // 新增角度-ANGLE_STEP
-                if(work_mode == MANUAL_MODE)
-                {
+        
+            case 3: // 增加当前设置项的值
+                if(work_mode == MANUAL_MODE) {
+                    // 现有的手动模式角度减少功能
                     manual_angle = (manual_angle <= 0) ? 180 : manual_angle - ANGLE_STEP;
+                }
+                else if(work_mode == TIMER_MODE) {
+                    // 增加当前设置项的值
+                    switch(timer_setting_index) {
+                        case 0: // 小时
+                            timer_setting.hour = (timer_setting.hour + 1) % 24;
+                            break;
+                        case 1: // 分钟
+                            timer_setting.minute = (timer_setting.minute + 1) % 60;
+                            break;
+                        case 2: // 角度
+                            timer_setting.angle = (timer_setting.angle + ANGLE_STEP > 180) ? 0 : timer_setting.angle + ANGLE_STEP;
+                            break;
+                        case 3: // 启用状态
+                            timer_setting.enabled = !timer_setting.enabled;
+                            break;
+                    }
+                }
+                break;
+                    
+            case 4: // 减少当前设置项的值（新增按键功能）
+                if(work_mode == TIMER_MODE) {
+                    switch(timer_setting_index) {
+                        case 0: // 小时
+                            timer_setting.hour = (timer_setting.hour == 0) ? 23 : timer_setting.hour - 1;
+                            break;
+                        case 1: // 分钟
+                            timer_setting.minute = (timer_setting.minute == 0) ? 59 : timer_setting.minute - 1;
+                            break;
+                        case 2: // 角度
+                            timer_setting.angle = (timer_setting.angle <= 0) ? 180 : timer_setting.angle - ANGLE_STEP;
+                            break;
+                        case 3: // 启用状态
+                            timer_setting.enabled = !timer_setting.enabled;
+                            break;
+                    }
+                }
+                break;
+                    
+            case 5: // 快速切换启用/禁用状态
+                if(work_mode == TIMER_MODE) {
+                    timer_setting.enabled = !timer_setting.enabled;
                 }
                 break;
             }
@@ -293,31 +374,82 @@ int main(void)
             UsartPrintf(USART_DEBUG, "[DEBUG] light=%.0f -> angle=%d\n", 
                         light_value, LightToFixedAngle(light_value));
 			
-           angle = (work_mode == AUTO_MODE) ? LightToFixedAngle(light_value) : manual_angle;
+           // 根据不同模式计算角度
+            if(work_mode == AUTO_MODE) {
+                angle = LightToFixedAngle(light_value);
+            }
+            else if(work_mode == MANUAL_MODE) {
+                angle = manual_angle;
+            }
+            // 注意：TIMER_MODE下不在这里更新角度，而是在时钟中断中处理
             
-            /* 显示优化 */
-            // 模式显示
+            /* 显示优化 - 统一格式和清晰布局 */
+            
+            // 2. 模式显示 - 对所有模式统一处理
             char mode_str[16];
-            sprintf(mode_str, "Mode:%s", (work_mode == AUTO_MODE) ? "Auto" : "Manu");
+            if(work_mode == AUTO_MODE)
+                sprintf(mode_str, "Mode:Auto   ");  // 补空格确保清除旧内容
+            else if(work_mode == MANUAL_MODE)
+                sprintf(mode_str, "Mode:Manual ");
+            else
+                sprintf(mode_str, "Mode:Timer  ");
+                
             OLED_ShowStr(0, LINE_MODE, (uint8_t *)mode_str, 2);
 
-            // 角度显示（固定位置）
+            // 3. 角度显示 - 确保格式一致
             char angle_str[16];
-            sprintf(angle_str, "Angle:%3d", angle); 
+            sprintf(angle_str, "Angle:%3d   ", angle); // 固定宽度
             OLED_ShowStr(0, LINE_ANGLE, (uint8_t *)angle_str, 2);
 
-            // 光照强度显示（左对齐）
-            char light_info[16];
-            sprintf(light_info, "Lux:%-5.0f", light_value);
-            OLED_ShowStr(0, LINE_LIGHT, (uint8_t *)light_info, 2);
-
-            // 发送状态（临时显示，小字体）
-            if(timeCount % 10 == 0) {
-                char send_status[16];
-                sprintf(send_status, "%-8s", (timeCount % 10 == 0) ? "Sending" : ""); // 左对齐8字符
-                OLED_ShowStr(64, LINE_SEND, (uint8_t *)send_status, 1);
+            // 4. 根据不同模式显示不同内容 - 优化定时模式显示
+            if(work_mode == AUTO_MODE || work_mode == MANUAL_MODE) {
+                
+                // 光照强度显示（自动和手动模式）
+                char light_info[16];
+                sprintf(light_info, "Lux:%-5.0f   ", light_value); // 固定宽度
+                OLED_ShowStr(0, LINE_LIGHT, (uint8_t *)light_info, 2);
+                
             }
-	
+            else if(work_mode == TIMER_MODE) {
+                // 先清除可能导致残留的行
+                OLED_ShowStr(0, LINE_LIGHT, (uint8_t *)"              ", 1); // 清除第一行
+                OLED_ShowStr(0, LINE_SEND, (uint8_t *)"              ", 1);  // 清除第二行
+                
+                // 1. 显示时间设置和角度（第一行）
+                char timer_str[16];
+                sprintf(timer_str, "%02d:%02d  %3ddeg", 
+                        timer_setting.hour, timer_setting.minute, timer_setting.angle);
+                OLED_ShowStr(0, LINE_LIGHT, (uint8_t *)timer_str, 2);
+                
+                // 2. 显示状态和光标（第二行 - 布局优化）
+                char status_str[16];
+                // 状态显示在左侧，光标显示在对应字段下方
+                sprintf(status_str, "%-3s", timer_setting.enabled ? "ON" : "OFF");
+                OLED_ShowStr(83, LINE_SEND, (uint8_t *)status_str, 1);
+                
+                // 3. 根据设置项显示不同位置的光标
+                char *cursor = NULL;
+                if(timer_setting_index == 0) {       // 小时
+                    cursor = "^";
+                    OLED_ShowStr(0, LINE_SEND, (uint8_t *)cursor, 1);
+                }
+                else if(timer_setting_index == 1) {  // 分钟
+                    cursor = "^";
+                    OLED_ShowStr(24, LINE_SEND, (uint8_t *)cursor, 1); 
+                }
+                else if(timer_setting_index == 2) {  // 角度
+                    cursor = "^";
+                    OLED_ShowStr(72, LINE_SEND, (uint8_t *)cursor, 1);
+                }
+                else if(timer_setting_index == 3) {  // 启用状态
+                    // 在状态旁加一个箭头指示
+                    if(timer_setting.enabled)
+                        OLED_ShowStr(70, LINE_SEND, (uint8_t *)"->", 1);
+                    else
+                        OLED_ShowStr(70, LINE_SEND, (uint8_t *)"->", 1);
+                }
+            }
+
             pwm = AngleToPWM(angle);
             index_bh1750 = 0;
         }

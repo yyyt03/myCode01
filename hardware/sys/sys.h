@@ -73,7 +73,8 @@ void MSR_MSP(u32 addr);	//设置堆栈地址
 //全局枚举类型
 typedef enum {
     AUTO_MODE = 0,    // 必须明确赋值
-    MANUAL_MODE = 1
+    MANUAL_MODE = 1,
+    TIMER_MODE = 2
 } SystemMode; // 将原main.c中的枚举定义移动到这里
 
 extern float light_value;       // 声明main.c中的光照强度变量
