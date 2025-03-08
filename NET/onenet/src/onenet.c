@@ -45,6 +45,21 @@
 #include <stdio.h>
 
 
+// 添加定时控制结构体定义
+typedef struct {
+    uint8_t start_hour;    // 开始小时（0-23）
+    uint8_t start_minute;  // 开始分钟（0-59）
+    uint8_t end_hour;      // 结束小时（0-23）
+    uint8_t end_minute;    // 结束分钟（0-59）
+    uint8_t angle;         // 角度（0-180）
+} TimerControl;
+
+// 添加对main.c中定义的全局变量的引用
+extern float light_value;       // 实时光照强度值
+extern uint8_t angle;           // 当前目标角度
+extern TimerControl timer_setting; // 定时控制结构体
+extern SystemMode work_mode;    // 工作模式
+
 #define PROID			"iMin8bQ9c6"
 
 #define ACCESS_KEY		"a3hSWlpaT2JRZlpOU3BVbW02OE5BdUxGVzJJbkg4UnE="
@@ -377,32 +392,56 @@ _Bool OneNet_DevLink(void)
 
 unsigned char OneNet_FillBuf(char *buf)
 {
-	
-	char text[48];
-	
-	memset(text, 0, sizeof(text));
-	
-	strcpy(buf, "{\"id\":\"123\",\"params\":{");
-	
+    char text[48];
+    
+    memset(text, 0, sizeof(text));
+    
+    strcpy(buf, "{\"id\":\"123\",\"params\":{");
+    
     // 光照强度
     memset(text, 0, sizeof(text));
-    sprintf(text, "\"light\":{\"value\":%.0f},", light_value); // 浮点数转整型
+    sprintf(text, "\"light\":{\"value\":%.0f},", light_value);
     strcat(buf, text);
-	
+    
     // 当前角度
     memset(text, 0, sizeof(text));
-    sprintf(text, "\"angle\":{\"value\":%d},", angle); 
+    sprintf(text, "\"angle\":{\"value\":%d},", angle);
     strcat(buf, text);
-	
+    
     // 控制模式
     memset(text, 0, sizeof(text));
-	sprintf(text, "\"mode\":{\"value\":%d}", work_mode); // AUTO_MODE=0, MANUAL_MODE=1
+    sprintf(text, "\"mode\":{\"value\":%d},", work_mode);
     strcat(buf, text);
-	
-	strcat(buf, "}}");
-	
-	return strlen(buf);
-	UsartPrintf(USART_DEBUG, "[NET] Global angle=%d\r\n", angle);
+    
+    // 如果是定时模式，添加定时参数
+    if(work_mode == TIMER_MODE) {
+        // 添加开始时间
+        memset(text, 0, sizeof(text));
+        sprintf(text, "\"start_time\":{\"value\":\"%02d:%02d\"},", 
+                timer_setting.start_hour, timer_setting.start_minute);
+        strcat(buf, text);
+        
+        // 添加结束时间
+        memset(text, 0, sizeof(text));
+        sprintf(text, "\"end_time\":{\"value\":\"%02d:%02d\"},", 
+                timer_setting.end_hour, timer_setting.end_minute);
+        strcat(buf, text);
+        
+        // 添加定时角度
+        memset(text, 0, sizeof(text));
+        sprintf(text, "\"timer_angle\":{\"value\":%d},", 
+                timer_setting.angle);
+        strcat(buf, text);
+    }
+    
+    // 删除最后一个逗号
+    size_t len = strlen(buf);
+    if(buf[len-1] == ',')
+        buf[len-1] = 0;
+    
+    strcat(buf, "}}");
+    
+    return strlen(buf);
 }
 
 //==========================================================
@@ -568,6 +607,8 @@ void OneNet_RevPro(unsigned char *cmd)
     cJSON *root = NULL;
     cJSON *params = NULL;
     cJSON *mode = NULL;
+	// 在已有代码基础上增加以下处理逻辑
+	cJSON *start_time = NULL, *end_time = NULL, *timer_angle = NULL;
     int new_mode = -1;
 
     type = MQTT_UnPacketRecv(cmd);
@@ -610,6 +651,36 @@ void OneNet_RevPro(unsigned char *cmd)
                                 Send_Property_Response(400, "Invalid mode value", -1);
                             }
                         }
+						// 处理定时参数
+						start_time = cJSON_GetObjectItem(params, "start_time");
+						if (start_time != NULL && start_time->valuestring != NULL) {
+							int hour, minute;
+							if(sscanf(start_time->valuestring, "%d:%d", &hour, &minute) == 2) {
+								timer_setting.start_hour = hour;
+								timer_setting.start_minute = minute;
+								UsartPrintf(USART_DEBUG, "Start time updated to: %02d:%02d\r\n", 
+											timer_setting.start_hour, timer_setting.start_minute);
+							}
+						}
+
+						end_time = cJSON_GetObjectItem(params, "end_time");
+						if (end_time != NULL && end_time->valuestring != NULL) {
+							int hour, minute;
+							if(sscanf(end_time->valuestring, "%d:%d", &hour, &minute) == 2) {
+								timer_setting.end_hour = hour;
+								timer_setting.end_minute = minute;
+								UsartPrintf(USART_DEBUG, "End time updated to: %02d:%02d\r\n", 
+											timer_setting.end_hour, timer_setting.end_minute);
+							}
+						}
+
+						timer_angle = cJSON_GetObjectItem(params, "timer_angle");
+						if (timer_angle != NULL) {
+							if(timer_angle->valueint >= 0 && timer_angle->valueint <= 180) {
+								timer_setting.angle = timer_angle->valueint;
+								UsartPrintf(USART_DEBUG, "Timer angle updated to: %d\r\n", timer_setting.angle);
+							}
+						}
                     }
                     cJSON_Delete(root);
                 }
