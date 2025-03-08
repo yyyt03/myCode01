@@ -34,7 +34,6 @@ typedef struct {
     uint8_t hour;     // 小时（0-23）
     uint8_t minute;   // 分钟（0-59）
     uint8_t angle;    // 角度（0-180）
-    uint8_t enabled;  // 是否启用（0-禁用，1-启用）
 } TimerControl;
 
 /* 全局变量声明 -----------------------------------------------------------*/
@@ -48,8 +47,8 @@ uint8_t angle = 0;                       // 当前目标角度
 char time_str[20]; // 时间显示缓存
 
 // 全局变量
-TimerControl timer_setting = {8, 0, 90, 0}; // 默认早8点，90度角，禁用
-uint8_t timer_setting_index = 0; // 设置项索引：0-小时，1-分钟，2-角度，3-启用状态
+TimerControl timer_setting = {19, 00, 0}; // 设置小时,分钟,转动角度
+uint8_t timer_setting_index = 0; // 设置项索引：0-小时，1-分钟，2-角度
 
 // 在main.c文件开头加入外部变量声明
 extern volatile uint8_t clock_update_flag;
@@ -265,8 +264,8 @@ int main(void)
                 OLED_ShowStr(0,0,(uint8_t *)"Wait NTP Sync",1);
             }
 
-                // 定时控制逻辑
-                if(timer_setting.enabled) {
+                // 修改定时控制逻辑：只在定时模式下生效
+                if(work_mode == TIMER_MODE) {
                     // 检查当前时间是否匹配定时设置
                     if(ntp_time.hour == timer_setting.hour && ntp_time.minute == timer_setting.minute) {
                         // 达到设定时间，执行角度调整
@@ -295,22 +294,26 @@ int main(void)
                     work_mode = TIMER_MODE;
                 else 
                     work_mode = AUTO_MODE;
+                // 模式切换时进行彻底清理，清除可能的显示残留
+                OLED_ShowStr(0, LINE_LIGHT, (uint8_t *)"              ", 2); // 清除第6行
+                OLED_ShowStr(0, LINE_SEND, (uint8_t *)"                    ", 1);  // 清除第8行
+                OLED_ShowStr(83, 6, (uint8_t *)"       ", 1);  // 清除角度设置区域
                     
                 if(work_mode == MANUAL_MODE) manual_angle = 90;
                 timer_setting_index = 0; // 切换到定时模式时重置设置索引
                 break;
                 
-            case 2: // 功能键
+                case 2: // 功能键
                 if(work_mode == MANUAL_MODE) {
                     // 现有的手动模式角度增加功能
                     manual_angle = (manual_angle >= 180) ? 0 : manual_angle + ANGLE_STEP;
                 }
                 else if(work_mode == TIMER_MODE) {
-                    // 在定时模式下循环切换设置项
-                    timer_setting_index = (timer_setting_index + 1) % 4;
+                    // 在定时模式下循环切换设置项(仅3项：时-分-角度)
+                    timer_setting_index = (timer_setting_index + 1) % 3;
                 }
                 break;
-        
+            
             case 3: // 增加当前设置项的值
                 if(work_mode == MANUAL_MODE) {
                     // 现有的手动模式角度减少功能
@@ -328,14 +331,11 @@ int main(void)
                         case 2: // 角度
                             timer_setting.angle = (timer_setting.angle + ANGLE_STEP > 180) ? 0 : timer_setting.angle + ANGLE_STEP;
                             break;
-                        case 3: // 启用状态
-                            timer_setting.enabled = !timer_setting.enabled;
-                            break;
                     }
                 }
                 break;
-                    
-            case 4: // 减少当前设置项的值（新增按键功能）
+                
+            case 4: // 减少当前设置项的值
                 if(work_mode == TIMER_MODE) {
                     switch(timer_setting_index) {
                         case 0: // 小时
@@ -347,16 +347,7 @@ int main(void)
                         case 2: // 角度
                             timer_setting.angle = (timer_setting.angle <= 0) ? 180 : timer_setting.angle - ANGLE_STEP;
                             break;
-                        case 3: // 启用状态
-                            timer_setting.enabled = !timer_setting.enabled;
-                            break;
                     }
-                }
-                break;
-                    
-            case 5: // 快速切换启用/禁用状态
-                if(work_mode == TIMER_MODE) {
-                    timer_setting.enabled = !timer_setting.enabled;
                 }
                 break;
             }
@@ -412,41 +403,27 @@ int main(void)
             }
             else if(work_mode == TIMER_MODE) {
                 // 先清除可能导致残留的行
-                OLED_ShowStr(0, LINE_LIGHT, (uint8_t *)"              ", 1); // 清除第一行
-                OLED_ShowStr(0, LINE_SEND, (uint8_t *)"              ", 1);  // 清除第二行
+                OLED_ShowStr(0, LINE_SEND, (uint8_t *)"                    ", 1);  // 清除选择光标行
                 
                 // 1. 显示时间设置和角度（第一行）
                 char timer_str[16];
-                sprintf(timer_str, "%02d:%02d  %3ddeg", 
-                        timer_setting.hour, timer_setting.minute, timer_setting.angle);
+                sprintf(timer_str, "Time:%02d:%02d", timer_setting.hour, timer_setting.minute);
                 OLED_ShowStr(0, LINE_LIGHT, (uint8_t *)timer_str, 2);
                 
-                // 2. 显示状态和光标（第二行 - 布局优化）
-                char status_str[16];
-                // 状态显示在左侧，光标显示在对应字段下方
-                sprintf(status_str, "%-3s", timer_setting.enabled ? "ON" : "OFF");
-                OLED_ShowStr(83, LINE_SEND, (uint8_t *)status_str, 1);
+                // 2. 显示角度设置（第7行）
+                char angle_str[16];
+                sprintf(angle_str, "Set:%3d", timer_setting.angle);
+                OLED_ShowStr(83, 6, (uint8_t *)angle_str, 1);
                 
                 // 3. 根据设置项显示不同位置的光标
-                char *cursor = NULL;
                 if(timer_setting_index == 0) {       // 小时
-                    cursor = "^";
-                    OLED_ShowStr(0, LINE_SEND, (uint8_t *)cursor, 1);
+                    OLED_ShowStr(42, LINE_SEND, (uint8_t *)"^", 1);
                 }
                 else if(timer_setting_index == 1) {  // 分钟
-                    cursor = "^";
-                    OLED_ShowStr(24, LINE_SEND, (uint8_t *)cursor, 1); 
+                    OLED_ShowStr(65, LINE_SEND, (uint8_t *)"^", 1);
                 }
                 else if(timer_setting_index == 2) {  // 角度
-                    cursor = "^";
-                    OLED_ShowStr(72, LINE_SEND, (uint8_t *)cursor, 1);
-                }
-                else if(timer_setting_index == 3) {  // 启用状态
-                    // 在状态旁加一个箭头指示
-                    if(timer_setting.enabled)
-                        OLED_ShowStr(70, LINE_SEND, (uint8_t *)"->", 1);
-                    else
-                        OLED_ShowStr(70, LINE_SEND, (uint8_t *)"->", 1);
+                    OLED_ShowStr(112, LINE_SEND, (uint8_t *)"^", 1);
                 }
             }
 
