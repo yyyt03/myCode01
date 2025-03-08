@@ -218,12 +218,23 @@ int main(void)
     
     // 将tick声明提前到函数开头，并移除clock_tick
     uint32_t tick = 0;
-    // uint32_t last_second = 0;
     uint8_t pwm = 100;
     
     Hardware_Init();        // 硬件初始化（含外设）
     ESP8266_Init();         // 初始化WiFi模块
 
+    // 先进行NTP同步，在连接OneNET前确保时间正确
+    OLED_ShowStr(0,0,(uint8_t *)"NTP Syncing...",2);
+    uint8_t ntp_tries = 3;  // 最多尝试3次
+    while(ntp_tries--) {
+        if(ESP8266_GetNTPTime() == 0) {
+            UsartPrintf(USART_DEBUG, "[NTP] Initial sync success\r\n");
+            break;
+        }
+        delayms(1000);
+        UsartPrintf(USART_DEBUG, "[NTP] Retry initial sync...\r\n");
+    }
+    
     // 连接OneNET平台并订阅控制指令
     OLED_ShowStr(0,0,(uint8_t *)"Conn OneNET...",2);
     while(OneNet_DevLink()) {
@@ -263,7 +274,7 @@ int main(void)
                             ntp_time.hour, ntp_time.minute, ntp_time.second);
             } else {
                 // 如果时间无效，显示等待NTP同步的信息
-                OLED_ShowStr(0,0,(uint8_t *)"Wait NTP Sync",1);
+                OLED_ShowStr(0,0,(uint8_t *)"NTP Time Invalid",1);
             }
 
                 // 修改定时控制逻辑：只在定时模式下生效
@@ -305,7 +316,7 @@ int main(void)
                             ntp_time.hour, ntp_time.minute, is_in_time_range, angle);
                 }
         }
-        
+
         // 其余代码保持不变...
         key_Functoin();  
         if(key_num != 0)

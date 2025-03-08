@@ -80,12 +80,11 @@ uint8_t ESP8266_GetNTPTime(void)
 {
     ESP8266_Clear();
     
-    // 配置SNTP服务器 (启用，时区+8，NTP服务器地址)
+    // 配置SNTP服务器 (启用，时区+8，使用多个NTP服务器提高可靠性)
     UsartPrintf(USART_DEBUG, "Setting SNTP config...\r\n");
-    if(ESP8266_SendCmd("AT+CIPSNTPCFG=1,8,\"ntp1.aliyun.com\"\r\n", "OK"))
+    if(ESP8266_SendCmd("AT+CIPSNTPCFG=1,8,\"ntp1.aliyun.com\",\"ntp.ntsc.ac.cn\",\"pool.ntp.org\"\r\n", "OK"))
     {
         UsartPrintf(USART_DEBUG, "SNTP config failed\r\n");
-        ntp_time.is_valid = 0;  // 标记时间无效
         return 1;
     }
     
@@ -96,8 +95,8 @@ uint8_t ESP8266_GetNTPTime(void)
     UsartPrintf(USART_DEBUG, "Querying SNTP time...\r\n");
     Usart_SendString(USART2, (unsigned char *)"AT+CIPSNTPTIME?\r\n", strlen("AT+CIPSNTPTIME?\r\n"));
     
-    // 等待时间响应
-    uint8_t timeOut = 50;  // 5秒超时
+    // 延长等待时间，增加同步成功率
+    uint8_t timeOut = 100;  // 10秒超时
     while(timeOut--)
     {
         if(ESP8266_WaitRecive() == REV_OK)
