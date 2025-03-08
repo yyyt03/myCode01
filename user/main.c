@@ -31,9 +31,11 @@
 
 // 定时控制结构体
 typedef struct {
-    uint8_t hour;     // 小时（0-23）
-    uint8_t minute;   // 分钟（0-59）
-    uint8_t angle;    // 角度（0-180）
+    uint8_t start_hour;    // 开始小时（0-23）
+    uint8_t start_minute;  // 开始分钟（0-59）
+    uint8_t end_hour;      // 结束小时（0-23）
+    uint8_t end_minute;    // 结束分钟（0-59）
+    uint8_t angle;         // 角度（0-180）
 } TimerControl;
 
 /* 全局变量声明 -----------------------------------------------------------*/
@@ -47,8 +49,8 @@ uint8_t angle = 0;                       // 当前目标角度
 char time_str[20]; // 时间显示缓存
 
 // 全局变量
-TimerControl timer_setting = {19, 00, 0}; // 设置小时,分钟,转动角度
-uint8_t timer_setting_index = 0; // 设置项索引：0-小时，1-分钟，2-角度
+TimerControl timer_setting = {8, 0, 19, 0, 150}; // 设置开始时间8:00，结束时间18:00，角度90度
+uint8_t timer_setting_index = 0; // 设置项索引：0-开始小时，1-开始分钟，2-结束小时，3-结束分钟，4-角度
 
 // 在main.c文件开头加入外部变量声明
 extern volatile uint8_t clock_update_flag;
@@ -266,18 +268,41 @@ int main(void)
 
                 // 修改定时控制逻辑：只在定时模式下生效
                 if(work_mode == TIMER_MODE) {
-                    // 检查当前时间是否匹配定时设置
-                    if(ntp_time.hour == timer_setting.hour && ntp_time.minute == timer_setting.minute) {
-                        // 达到设定时间，执行角度调整
-                        angle = timer_setting.angle;
-                        pwm = AngleToPWM(angle);
-                        TIM_SetCompare1(TIM2, pwm);
-                        TIM_SetCompare2(TIM2, pwm);
-                        
-                        // 调试输出
-                        UsartPrintf(USART_DEBUG, "[TIMER] Activated at %02d:%02d, angle=%d\r\n",
-                                timer_setting.hour, timer_setting.minute, timer_setting.angle);
+                    // 判断当前时间是否在设定时间段内
+                    uint8_t curr_hour = ntp_time.hour;
+                    uint8_t curr_minute = ntp_time.minute;
+                    
+                    // 将时间转换为分钟计数，便于比较
+                    uint16_t curr_time_mins = curr_hour * 60 + curr_minute;
+                    uint16_t start_time_mins = timer_setting.start_hour * 60 + timer_setting.start_minute;
+                    uint16_t end_time_mins = timer_setting.end_hour * 60 + timer_setting.end_minute;
+                    
+                    // 判断是否在时间段内（处理跨天情况）
+                    uint8_t is_in_time_range;
+                    if(start_time_mins <= end_time_mins) {
+                        // 不跨天：简单判断当前时间是否在开始和结束时间之间
+                        is_in_time_range = (curr_time_mins >= start_time_mins && curr_time_mins <= end_time_mins);
+                    } else {
+                        // 跨天情况：例如 22:00 - 06:00
+                        is_in_time_range = (curr_time_mins >= start_time_mins || curr_time_mins <= end_time_mins);
                     }
+                    
+                    // 根据时间段是否激活调整角度
+                    if(is_in_time_range) {
+                        angle = timer_setting.angle;
+                    } else {
+                        // 时间段外，设置为安全/默认角度（可以根据需求修改）
+                        angle = 0; // 例如：时间段外窗帘关闭
+                    }
+                    
+                    // 更新PWM并控制舵机
+                    pwm = AngleToPWM(angle);
+                    TIM_SetCompare1(TIM2, pwm);
+                    TIM_SetCompare2(TIM2, pwm);
+                    
+                    // 调试输出
+                    UsartPrintf(USART_DEBUG, "[TIMER] Time %02d:%02d, in range: %d, angle=%d\r\n",
+                            ntp_time.hour, ntp_time.minute, is_in_time_range, angle);
                 }
         }
         
@@ -295,10 +320,11 @@ int main(void)
                 else 
                     work_mode = AUTO_MODE;
                 // 模式切换时进行彻底清理，清除可能的显示残留
-                OLED_ShowStr(0, LINE_LIGHT, (uint8_t *)"              ", 2); // 清除第6行
+                OLED_ShowStr(0, LINE_LIGHT, (uint8_t *)"                    ", 2); // 清除第6行
                 OLED_ShowStr(0, LINE_SEND, (uint8_t *)"                    ", 1);  // 清除第8行
-                OLED_ShowStr(83, 6, (uint8_t *)"       ", 1);  // 清除角度设置区域
-                    
+                OLED_ShowStr(112, 4, (uint8_t *)"  ", 1);  // 清除角度选择光标行
+                OLED_ShowStr(83, LINE_ANGLE, (uint8_t *)"        ", 1);//清除定时模式的设置角度
+                
                 if(work_mode == MANUAL_MODE) manual_angle = 90;
                 timer_setting_index = 0; // 切换到定时模式时重置设置索引
                 break;
@@ -309,8 +335,8 @@ int main(void)
                     manual_angle = (manual_angle >= 180) ? 0 : manual_angle + ANGLE_STEP;
                 }
                 else if(work_mode == TIMER_MODE) {
-                    // 在定时模式下循环切换设置项(仅3项：时-分-角度)
-                    timer_setting_index = (timer_setting_index + 1) % 3;
+                    // 在定时模式下循环切换设置项(现在有5项：开始小时-开始分钟-结束小时-结束分钟-角度)
+                    timer_setting_index = (timer_setting_index + 1) % 5;
                 }
                 break;
             
@@ -322,13 +348,19 @@ int main(void)
                 else if(work_mode == TIMER_MODE) {
                     // 增加当前设置项的值
                     switch(timer_setting_index) {
-                        case 0: // 小时
-                            timer_setting.hour = (timer_setting.hour + 1) % 24;
+                        case 0: // 开始小时
+                            timer_setting.start_hour = (timer_setting.start_hour + 1) % 24;
                             break;
-                        case 1: // 分钟
-                            timer_setting.minute = (timer_setting.minute + 1) % 60;
+                        case 1: // 开始分钟
+                            timer_setting.start_minute = (timer_setting.start_minute + 1) % 60;
                             break;
-                        case 2: // 角度
+                        case 2: // 结束小时
+                            timer_setting.end_hour = (timer_setting.end_hour + 1) % 24;
+                            break;
+                        case 3: // 结束分钟
+                            timer_setting.end_minute = (timer_setting.end_minute + 1) % 60;
+                            break;
+                        case 4: // 角度
                             timer_setting.angle = (timer_setting.angle + ANGLE_STEP > 180) ? 0 : timer_setting.angle + ANGLE_STEP;
                             break;
                     }
@@ -338,13 +370,19 @@ int main(void)
             case 4: // 减少当前设置项的值
                 if(work_mode == TIMER_MODE) {
                     switch(timer_setting_index) {
-                        case 0: // 小时
-                            timer_setting.hour = (timer_setting.hour == 0) ? 23 : timer_setting.hour - 1;
+                        case 0: // 开始小时
+                            timer_setting.start_hour = (timer_setting.start_hour == 0) ? 23 : timer_setting.start_hour - 1;
                             break;
-                        case 1: // 分钟
-                            timer_setting.minute = (timer_setting.minute == 0) ? 59 : timer_setting.minute - 1;
+                        case 1: // 开始分钟
+                            timer_setting.start_minute = (timer_setting.start_minute == 0) ? 59 : timer_setting.start_minute - 1;
                             break;
-                        case 2: // 角度
+                        case 2: // 结束小时
+                            timer_setting.end_hour = (timer_setting.end_hour == 0) ? 23 : timer_setting.end_hour - 1;
+                            break;
+                        case 3: // 结束分钟
+                            timer_setting.end_minute = (timer_setting.end_minute == 0) ? 59 : timer_setting.end_minute - 1;
+                            break;
+                        case 4: // 角度
                             timer_setting.angle = (timer_setting.angle <= 0) ? 180 : timer_setting.angle - ANGLE_STEP;
                             break;
                     }
@@ -401,29 +439,37 @@ int main(void)
                 OLED_ShowStr(0, LINE_LIGHT, (uint8_t *)light_info, 2);
                 
             }
-            else if(work_mode == TIMER_MODE) {
+                else if(work_mode == TIMER_MODE) {
                 // 先清除可能导致残留的行
-                OLED_ShowStr(0, LINE_SEND, (uint8_t *)"                    ", 1);  // 清除选择光标行
-                
-                // 1. 显示时间设置和角度（第一行）
+                OLED_ShowStr(0, LINE_SEND, (uint8_t *)"                   ", 1);  // 清除底部选择光标行
+                OLED_ShowStr(112, 4, (uint8_t *)"  ", 1);  // 清除角度选择光标行
+                // 1. 显示开始时间
                 char timer_str[16];
-                sprintf(timer_str, "Time:%02d:%02d", timer_setting.hour, timer_setting.minute);
+                sprintf(timer_str, "S:%02d:%02d E:%02d:%02d", 
+                        timer_setting.start_hour, timer_setting.start_minute,
+                        timer_setting.end_hour, timer_setting.end_minute);
                 OLED_ShowStr(0, LINE_LIGHT, (uint8_t *)timer_str, 2);
                 
-                // 2. 显示角度设置（第7行）
+                // 2. 显示角度设置
                 char angle_str[16];
                 sprintf(angle_str, "Set:%3d", timer_setting.angle);
-                OLED_ShowStr(83, 6, (uint8_t *)angle_str, 1);
+                OLED_ShowStr(83, LINE_ANGLE, (uint8_t *)angle_str, 1);
                 
                 // 3. 根据设置项显示不同位置的光标
-                if(timer_setting_index == 0) {       // 小时
-                    OLED_ShowStr(42, LINE_SEND, (uint8_t *)"^", 1);
+                if(timer_setting_index == 0) {        // 开始小时
+                    OLED_ShowStr(20, LINE_SEND, (uint8_t *)"^", 1);
                 }
-                else if(timer_setting_index == 1) {  // 分钟
-                    OLED_ShowStr(65, LINE_SEND, (uint8_t *)"^", 1);
+                else if(timer_setting_index == 1) {   // 开始分钟
+                    OLED_ShowStr(41, LINE_SEND, (uint8_t *)"^", 1);
                 }
-                else if(timer_setting_index == 2) {  // 角度
-                    OLED_ShowStr(112, LINE_SEND, (uint8_t *)"^", 1);
+                else if(timer_setting_index == 2) {   // 结束小时
+                    OLED_ShowStr(82, LINE_SEND, (uint8_t *)"^", 1);
+                }
+                else if(timer_setting_index == 3) {   // 结束分钟
+                    OLED_ShowStr(105, LINE_SEND, (uint8_t *)"^", 1);
+                }
+                else if(timer_setting_index == 4) {   // 角度
+                    OLED_ShowStr(112, 4, (uint8_t *)"^", 1);
                 }
             }
 
