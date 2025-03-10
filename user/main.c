@@ -48,6 +48,9 @@ float light_value = 0;                    // 实时光照强度值
 uint8_t angle = 0;                       // 当前目标角度
 char time_str[20]; // 时间显示缓存
 
+uint8_t prev_timer_setting_index = 0xFF; // 初始值设为无效值，确保首次一定更新
+uint8_t cursor_displayed = 0;            // 光标是否已显示的标志
+
 // 全局变量
 TimerControl timer_setting = {8, 0, 19, 0, 150}; // 设置开始时间8:00，结束时间18:00，角度90度
 uint8_t timer_setting_index = 0; // 设置项索引：0-开始小时，1-开始分钟，2-结束小时，3-结束分钟，4-角度
@@ -279,6 +282,7 @@ int main(void)
 
                 // 修改定时控制逻辑：只在定时模式下生效
                 if(work_mode == TIMER_MODE) {
+
                     // 判断当前时间是否在设定时间段内
                     uint8_t curr_hour = ntp_time.hour;
                     uint8_t curr_minute = ntp_time.minute;
@@ -450,39 +454,42 @@ int main(void)
                 OLED_ShowStr(0, LINE_LIGHT, (uint8_t *)light_info, 2);
                 
             }
+                // 修改定时模式显示代码部分
                 else if(work_mode == TIMER_MODE) {
-                // 先清除可能导致残留的行
-                OLED_ShowStr(0, LINE_SEND, (uint8_t *)"                   ", 1);  // 清除底部选择光标行
-                OLED_ShowStr(112, 4, (uint8_t *)"  ", 1);  // 清除角度选择光标行
-                // 1. 显示开始时间
-                char timer_str[16];
-                sprintf(timer_str, "S:%02d:%02d E:%02d:%02d", 
-                        timer_setting.start_hour, timer_setting.start_minute,
-                        timer_setting.end_hour, timer_setting.end_minute);
-                OLED_ShowStr(0, LINE_LIGHT, (uint8_t *)timer_str, 2);
-                
-                // 2. 显示角度设置
-                char angle_str[16];
-                sprintf(angle_str, "Set:%3d", timer_setting.angle);
-                OLED_ShowStr(83, LINE_ANGLE, (uint8_t *)angle_str, 1);
-                
-                // 3. 根据设置项显示不同位置的光标
-                if(timer_setting_index == 0) {        // 开始小时
-                    OLED_ShowStr(20, LINE_SEND, (uint8_t *)"^", 1);
+
+                    // 仅在首次进入或时间值变化时更新时间字符串
+                    char timer_str[16];
+                    sprintf(timer_str, "S:%02d:%02d E:%02d:%02d", 
+                            timer_setting.start_hour, timer_setting.start_minute,
+                            timer_setting.end_hour, timer_setting.end_minute);
+                    OLED_ShowStr(0, LINE_LIGHT, (uint8_t *)timer_str, 2);
+                    
+                    // 显示角度设置
+                    char angle_str[16];
+                    sprintf(angle_str, "Set:%3d", timer_setting.angle);
+                    OLED_ShowStr(83, LINE_ANGLE, (uint8_t *)angle_str, 1);
+                    
+                    // 仅在设置项变化时才更新光标位置
+                    if(prev_timer_setting_index != timer_setting_index) {
+                        // 清除所有可能位置的光标
+                        OLED_ShowStr(20, LINE_SEND, (uint8_t *)" ", 1);   // 开始小时位置
+                        OLED_ShowStr(41, LINE_SEND, (uint8_t *)" ", 1);   // 开始分钟位置
+                        OLED_ShowStr(82, LINE_SEND, (uint8_t *)" ", 1);   // 结束小时位置
+                        OLED_ShowStr(105, LINE_SEND, (uint8_t *)" ", 1);  // 结束分钟位置
+                        OLED_ShowStr(112, 4, (uint8_t *)" ", 1);         // 角度位置
+                        
+                        // 显示新位置的光标
+                        switch(timer_setting_index) {
+                            case 0: OLED_ShowStr(20, LINE_SEND, (uint8_t *)"^", 1); break;
+                            case 1: OLED_ShowStr(41, LINE_SEND, (uint8_t *)"^", 1); break;
+                            case 2: OLED_ShowStr(82, LINE_SEND, (uint8_t *)"^", 1); break;
+                            case 3: OLED_ShowStr(105, LINE_SEND, (uint8_t *)"^", 1); break;
+                            case 4: OLED_ShowStr(112, 4, (uint8_t *)"^", 1); break;
+                        }
+                        
+                        prev_timer_setting_index = timer_setting_index;
+                    }
                 }
-                else if(timer_setting_index == 1) {   // 开始分钟
-                    OLED_ShowStr(41, LINE_SEND, (uint8_t *)"^", 1);
-                }
-                else if(timer_setting_index == 2) {   // 结束小时
-                    OLED_ShowStr(82, LINE_SEND, (uint8_t *)"^", 1);
-                }
-                else if(timer_setting_index == 3) {   // 结束分钟
-                    OLED_ShowStr(105, LINE_SEND, (uint8_t *)"^", 1);
-                }
-                else if(timer_setting_index == 4) {   // 角度
-                    OLED_ShowStr(112, 4, (uint8_t *)"^", 1);
-                }
-            }
 
             pwm = AngleToPWM(angle);
             index_bh1750 = 0;
