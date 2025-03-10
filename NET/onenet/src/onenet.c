@@ -613,6 +613,7 @@ void OneNet_RevPro(unsigned char *cmd)
     cJSON *root = NULL;
     cJSON *params = NULL;
     cJSON *mode = NULL;
+    cJSON *angle_json = NULL;  // 添加angle参数的JSON对象指针
     cJSON *start_time = NULL, *end_time = NULL, *timer_angle = NULL;
     int new_mode = -1;
     int param_changed = 0; // 标记是否有参数被更改
@@ -653,6 +654,32 @@ void OneNet_RevPro(unsigned char *cmd)
                             {
                                 // 发送错误响应
                                 Send_Property_Response(400, "Invalid mode value", -1);
+                            }
+                        }
+                        
+                        // 添加对角度参数的处理
+                        angle_json = cJSON_GetObjectItem(params, "angle");
+                        if (angle_json != NULL && angle_json->type == cJSON_Number)
+                        {
+                            int new_angle = angle_json->valueint;
+                            
+                            // 验证角度值是否在有效范围
+                            if (new_angle >= 0 && new_angle <= 180)
+                            {
+                                // 更新角度值，在手动模式下同时更新manual_angle
+                                angle = new_angle;
+                                if (work_mode == MANUAL_MODE)
+                                {
+                                    // 在外部定义的manual_angle也需要更新
+                                    manual_angle = new_angle;
+                                    UsartPrintf(USART_DEBUG, "Manual angle updated: %d\r\n", manual_angle);
+                                }
+                                param_changed = 1;
+                            }
+                            else
+                            {
+                                // 发送错误响应
+                                Send_Property_Response(400, "Invalid angle value", -1);
                             }
                         }
                         
