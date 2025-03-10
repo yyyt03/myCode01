@@ -550,7 +550,7 @@ void OneNET_Subscribe(void)
 
 }
 
-// 新增函数：发送属性设置响应
+// 修复版本：发送属性设置响应
 void Send_Property_Response(int code, const char *msg, int mode_value)
 {
     cJSON *root = cJSON_CreateObject();
@@ -558,9 +558,16 @@ void Send_Property_Response(int code, const char *msg, int mode_value)
     {
         cJSON_AddNumberToObject(root, "code", code);
         cJSON_AddStringToObject(root, "msg", msg);
+        
+        // 只有在需要返回模式值时才添加data字段
         if (mode_value != -1)
         {
-            cJSON_AddNumberToObject(root, "data", mode_value);
+            cJSON *data = cJSON_CreateObject();
+            if (data != NULL)
+            {
+                cJSON_AddNumberToObject(data, "mode", mode_value);
+                cJSON_AddItemToObject(root, "data", data);
+            }
         }
 
         // 将JSON序列化为字符串
@@ -594,7 +601,6 @@ void Send_Property_Response(int code, const char *msg, int mode_value)
 //
 //	说明：		
 //==========================================================
-
 void OneNet_RevPro(unsigned char *cmd)
 {
     char *req_payload = NULL;
@@ -607,18 +613,19 @@ void OneNet_RevPro(unsigned char *cmd)
     cJSON *root = NULL;
     cJSON *params = NULL;
     cJSON *mode = NULL;
-	// 在已有代码基础上增加以下处理逻辑
-	cJSON *start_time = NULL, *end_time = NULL, *timer_angle = NULL;
+    cJSON *start_time = NULL, *end_time = NULL, *timer_angle = NULL;
     int new_mode = -1;
-
+    int param_changed = 0; // 标记是否有参数被更改
+    
     type = MQTT_UnPacketRecv(cmd);
+    
     switch (type)
     {
         case MQTT_PKT_PUBLISH:  // 接收Publish消息
             if (MQTT_UnPacketPublish(cmd, &cmdid_topic, &topic_len, &req_payload, &req_len, &qos, &pkt_id) == 0)
             {
-                // 解析主题和有效载荷
-                UsartPrintf(USART_DEBUG, "Topic: %s, Payload: %s\r\n", cmdid_topic, req_payload);
+                // 简要记录接收主题
+                UsartPrintf(USART_DEBUG, "Received: Topic=%s\r\n", cmdid_topic);
 
                 // 使用cJSON解析JSON数据
                 root = cJSON_Parse(req_payload);
@@ -627,23 +634,20 @@ void OneNet_RevPro(unsigned char *cmd)
                     params = cJSON_GetObjectItem(root, "params");
                     if (params != NULL)
                     {
-						// 解析 mode 参数
+                        // 解析 mode 参数
                         mode = cJSON_GetObjectItem(params, "mode");
-                        if (mode != NULL)
+                        if (mode != NULL && mode->type == cJSON_Number)
                         {
-                            new_mode = mode->valueint;  // 直接读取整数值
-							 // 处理 mode 参数的逻辑
-                            if (new_mode == 0 || new_mode == 1)
+                            new_mode = mode->valueint;
+                            
+                            // 检查是否是有效的模式值
+                            if (new_mode >= 0 && new_mode <= 2)
                             {
-                                // 更新工作模式
+                                // 记录模式变化
+                                SystemMode old_mode = work_mode;
                                 work_mode = (SystemMode)new_mode;
-                                UsartPrintf(USART_DEBUG, "Mode updated to: %d\r\n", new_mode);
-
-                                // 发送属性设置响应
-                                Send_Property_Response(200, "success", new_mode);
-                                
-                                // 立即上报最新数据
-                                OneNet_SendData();
+                                UsartPrintf(USART_DEBUG, "Mode changed: %d -> %d\r\n", old_mode, work_mode);
+                                param_changed = 1;
                             }
                             else
                             {
@@ -651,38 +655,59 @@ void OneNet_RevPro(unsigned char *cmd)
                                 Send_Property_Response(400, "Invalid mode value", -1);
                             }
                         }
-						// 处理定时参数
-						start_time = cJSON_GetObjectItem(params, "start_time");
-						if (start_time != NULL && start_time->valuestring != NULL) {
-							int hour, minute;
-							if(sscanf(start_time->valuestring, "%d:%d", &hour, &minute) == 2) {
-								timer_setting.start_hour = hour;
-								timer_setting.start_minute = minute;
-								UsartPrintf(USART_DEBUG, "Start time updated to: %02d:%02d\r\n", 
-											timer_setting.start_hour, timer_setting.start_minute);
-							}
-						}
+                        
+                        // 处理定时参数
+                        start_time = cJSON_GetObjectItem(params, "start_time");
+                        if (start_time != NULL && start_time->type == cJSON_String) {
+                            int hour, minute;
+                            if(sscanf(start_time->valuestring, "%d:%d", &hour, &minute) == 2) {
+                                if(hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
+                                    timer_setting.start_hour = hour;
+                                    timer_setting.start_minute = minute;
+                                    UsartPrintf(USART_DEBUG, "Start time set: %02d:%02d\r\n", 
+                                                timer_setting.start_hour, timer_setting.start_minute);
+                                    param_changed = 1;
+                                } else {
+                                    Send_Property_Response(400, "Time values out of range", -1);
+                                }
+                            }
+                        }
 
-						end_time = cJSON_GetObjectItem(params, "end_time");
-						if (end_time != NULL && end_time->valuestring != NULL) {
-							int hour, minute;
-							if(sscanf(end_time->valuestring, "%d:%d", &hour, &minute) == 2) {
-								timer_setting.end_hour = hour;
-								timer_setting.end_minute = minute;
-								UsartPrintf(USART_DEBUG, "End time updated to: %02d:%02d\r\n", 
-											timer_setting.end_hour, timer_setting.end_minute);
-							}
-						}
+                        // 处理end_time
+                        end_time = cJSON_GetObjectItem(params, "end_time");
+                        if (end_time != NULL && end_time->type == cJSON_String) {
+                            int hour, minute;
+                            if(sscanf(end_time->valuestring, "%d:%d", &hour, &minute) == 2) {
+                                if(hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
+                                    timer_setting.end_hour = hour;
+                                    timer_setting.end_minute = minute;
+                                    UsartPrintf(USART_DEBUG, "End time set: %02d:%02d\r\n", 
+                                                timer_setting.end_hour, timer_setting.end_minute);
+                                    param_changed = 1;
+                                }
+                            }
+                        }
 
-						timer_angle = cJSON_GetObjectItem(params, "timer_angle");
-						if (timer_angle != NULL) {
-							if(timer_angle->valueint >= 0 && timer_angle->valueint <= 180) {
-								timer_setting.angle = timer_angle->valueint;
-								UsartPrintf(USART_DEBUG, "Timer angle updated to: %d\r\n", timer_setting.angle);
-							}
-						}
+                        // 处理timer_angle参数
+                        timer_angle = cJSON_GetObjectItem(params, "timer_angle");
+                        if (timer_angle != NULL && timer_angle->type == cJSON_Number) {
+                            if(timer_angle->valueint >= 0 && timer_angle->valueint <= 180) {
+                                timer_setting.angle = timer_angle->valueint;
+                                UsartPrintf(USART_DEBUG, "Timer angle set: %d\r\n", timer_setting.angle);
+                                param_changed = 1;
+                            }
+                        }
+                        
+                        // 如果有参数被更改，发送成功响应并立即上报最新数据
+                        if (param_changed) {
+                            Send_Property_Response(200, "success", work_mode);
+                            // 立即上报最新数据
+                            OneNet_SendData();
+                        }
                     }
                     cJSON_Delete(root);
+                } else {
+                    Send_Property_Response(400, "Invalid JSON format", -1);
                 }
 
                 // 清理资源
@@ -693,21 +718,16 @@ void OneNet_RevPro(unsigned char *cmd)
 
         case MQTT_PKT_PUBACK:  // 接收Publish确认
             if (MQTT_UnPacketPublishAck(cmd) == 0)
-                UsartPrintf(USART_DEBUG, "Publish Send OK\r\n");
+                UsartPrintf(USART_DEBUG, "Publish ACK received\r\n");
             break;
 
         case MQTT_PKT_SUBACK:  // 接收订阅确认
             if (MQTT_UnPacketSubscribe(cmd) == 0)
                 UsartPrintf(USART_DEBUG, "Subscribe OK\r\n");
             else
-                UsartPrintf(USART_DEBUG, "Subscribe Err\r\n");
-            break;
-
-        default:
+                UsartPrintf(USART_DEBUG, "Subscribe Failed\r\n");
             break;
     }
 
     ESP8266_Clear();  // 清空缓存
 }
-
-
