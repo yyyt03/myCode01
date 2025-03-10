@@ -598,6 +598,26 @@
               <FileType>1</FileType>
               <FilePath>..\hardware\timer\timer.c</FilePath>
             </File>
+            <File>
+              <FileName>display_manager.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\hardware\src\display_manager.c</FilePath>
+            </File>
+            <File>
+              <FileName>hw_control.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\hardware\src\hw_control.c</FilePath>
+            </File>
+            <File>
+              <FileName>mode_manager.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\hardware\src\mode_manager.c</FilePath>
+            </File>
+            <File>
+              <FileName>network_manager.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\hardware\src\network_manager.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

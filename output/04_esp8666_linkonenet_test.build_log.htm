@@ -22,7 +22,7 @@ Dialog DLL:      TCM.DLL V1.53.0.0
  
 <h2>Project:</h2>
 e:\data\TEST\BY\之后。\毕设\物联网Demo\下位机\user\06_onenet_subcribe_led_test.uvprojx
-Project File Date:  02/22/2025
+Project File Date:  03/10/2025
 
 <h2>Output:</h2>
 *** Using Compiler 'V5.06 update 7 (build 960)', folder: 'E:\Program Files\Keil5\ARM\ARMCC\Bin'
@@ -30,13 +30,59 @@ Build target 'Target 1'
 compiling main.c...
 ..\hardware\sys\sys.h(84): warning:  #1-D: last line of file ends without a newline
   #endif
-main.c(547): warning:  #1-D: last line of file ends without a newline
+..\hardware\inc\hw_control.h(11): warning:  #1-D: last line of file ends without a newline
+  #endif
+..\hardware\inc\mode_manager.h(33): warning:  #1-D: last line of file ends without a newline
+  #endif
+..\hardware\inc\display_manager.h(15): warning:  #1-D: last line of file ends without a newline
+  #endif
+..\hardware\inc\network_manager.h(16): warning:  #1-D: last line of file ends without a newline
+  #endif
+main.c(43): warning:  #177-D: variable "dataPtr"  was declared but never referenced
+      unsigned char *dataPtr = NULL;
+main.c(44): warning:  #177-D: variable "prev_timer_setting_index"  was declared but never referenced
+      uint8_t prev_timer_setting_index = 0;
+main.c(155): warning:  #1-D: last line of file ends without a newline
   }
-main.c: 2 warnings, 0 errors
+main.c: 8 warnings, 0 errors
+compiling hw_control.c...
+..\hardware\inc\hw_control.h(11): warning:  #1-D: last line of file ends without a newline
+  #endif
+..\hardware\sys\sys.h(84): warning:  #1-D: last line of file ends without a newline
+  #endif
+..\hardware\inc\display_manager.h(15): warning:  #1-D: last line of file ends without a newline
+  #endif
+..\hardware\src\hw_control.c(49): warning:  #1-D: last line of file ends without a newline
+  }
+..\hardware\src\hw_control.c: 4 warnings, 0 errors
+compiling display_manager.c...
+..\hardware\inc\display_manager.h(15): warning:  #1-D: last line of file ends without a newline
+  #endif
+..\hardware\src\display_manager.c(103): warning:  #1-D: last line of file ends without a newline
+  }
+..\hardware\src\display_manager.c: 2 warnings, 0 errors
+compiling network_manager.c...
+..\hardware\inc\network_manager.h(16): warning:  #1-D: last line of file ends without a newline
+  #endif
+..\hardware\sys\sys.h(84): warning:  #1-D: last line of file ends without a newline
+  #endif
+..\hardware\inc\display_manager.h(15): warning:  #1-D: last line of file ends without a newline
+  #endif
+..\hardware\src\network_manager.c(30): warning:  #223-D: function "OLED_ShowStr" declared implicitly
+          OLED_ShowStr(0, 2, (uint8_t *)"Retrying...", 2);
+..\hardware\src\network_manager.c(38): warning:  #223-D: function "sprintf" declared implicitly
+      sprintf(time_str, "%04d-%02d-%02d", ntp_time.year, ntp_time.month, ntp_time.day);
+..\hardware\src\network_manager.c(39): warning:  #223-D: function "OLED_ShowStr" declared implicitly
+      OLED_ShowStr(0, 0, (uint8_t *)time_str, 1);
+..\hardware\src\network_manager.c(44): warning:  #223-D: function "OLED_CLS" declared implicitly
+      OLED_CLS();
+..\hardware\src\network_manager.c(61): warning:  #1-D: last line of file ends without a newline
+  }
+..\hardware\src\network_manager.c: 8 warnings, 0 errors
 linking...
-Program Size: Code=33820 RO-data=7244 RW-data=112 ZI-data=2760  
+Program Size: Code=34080 RO-data=7248 RW-data=108 ZI-data=2724  
 FromELF: creating hex file...
-"..\output\04_esp8666_linkonenet_test.axf" - 0 Error(s), 2 Warning(s).
+"..\output\04_esp8666_linkonenet_test.axf" - 0 Error(s), 22 Warning(s).
 
 <h2>Software Packages used:</h2>
 

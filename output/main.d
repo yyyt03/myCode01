@@ -15,15 +15,16 @@
 ..\output\main.o: ..\fwlib\inc\stm32f10x_tim.h
 ..\output\main.o: ..\fwlib\inc\stm32f10x_usart.h
 ..\output\main.o: ..\fwlib\inc\misc.h
-..\output\main.o: ..\hardware\inc\delay.h
-..\output\main.o: ..\hardware\inc\usart.h
-..\output\main.o: ..\hardware\inc\oled.h
-..\output\main.o: ..\hardware\BH1750\bh1750.h
-..\output\main.o: ..\hardware\BH1750\myiic.h
 ..\output\main.o: ..\hardware\sys\sys.h
-..\output\main.o: ..\hardware\timer\timer.h
-..\output\main.o: ..\hardware\inc\key.h
-..\output\main.o: ..\NET\onenet\inc\onenet.h
-..\output\main.o: ..\NET\device\inc\esp8266.h
 ..\output\main.o: E:\Program Files\Keil5\ARM\ARMCC\Bin\..\include\string.h
 ..\output\main.o: E:\Program Files\Keil5\ARM\ARMCC\Bin\..\include\stdio.h
+..\output\main.o: ..\hardware\inc\delay.h
+..\output\main.o: ..\hardware\inc\usart.h
+..\output\main.o: ..\hardware\inc\key.h
+..\output\main.o: ..\hardware\inc\oled.h
+..\output\main.o: ..\NET\onenet\inc\onenet.h
+..\output\main.o: ..\NET\device\inc\esp8266.h
+..\output\main.o: ..\hardware\inc\hw_control.h
+..\output\main.o: ..\hardware\inc\mode_manager.h
+..\output\main.o: ..\hardware\inc\display_manager.h
+..\output\main.o: ..\hardware\inc\network_manager.h

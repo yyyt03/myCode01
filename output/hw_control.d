@@ -1,0 +1,27 @@
+..\output\hw_control.o: ..\hardware\src\hw_control.c
+..\output\hw_control.o: ..\hardware\inc\hw_control.h
+..\output\hw_control.o: ..\core\stm32f10x.h
+..\output\hw_control.o: ..\core\core_cm3.h
+..\output\hw_control.o: E:\Program Files\Keil5\ARM\ARMCC\Bin\..\include\stdint.h
+..\output\hw_control.o: ..\core\system_stm32f10x.h
+..\output\hw_control.o: ..\core\stm32f10x_conf.h
+..\output\hw_control.o: ..\fwlib\inc\stm32f10x_adc.h
+..\output\hw_control.o: ..\core\stm32f10x.h
+..\output\hw_control.o: ..\fwlib\inc\stm32f10x_exti.h
+..\output\hw_control.o: ..\fwlib\inc\stm32f10x_fsmc.h
+..\output\hw_control.o: ..\fwlib\inc\stm32f10x_gpio.h
+..\output\hw_control.o: ..\fwlib\inc\stm32f10x_i2c.h
+..\output\hw_control.o: ..\fwlib\inc\stm32f10x_rcc.h
+..\output\hw_control.o: ..\fwlib\inc\stm32f10x_spi.h
+..\output\hw_control.o: ..\fwlib\inc\stm32f10x_tim.h
+..\output\hw_control.o: ..\fwlib\inc\stm32f10x_usart.h
+..\output\hw_control.o: ..\fwlib\inc\misc.h
+..\output\hw_control.o: ..\hardware\inc\usart.h
+..\output\hw_control.o: ..\hardware\inc\delay.h
+..\output\hw_control.o: ..\hardware\inc\oled.h
+..\output\hw_control.o: ..\hardware\BH1750\bh1750.h
+..\output\hw_control.o: ..\hardware\BH1750\myiic.h
+..\output\hw_control.o: ..\hardware\sys\sys.h
+..\output\hw_control.o: ..\hardware\timer\timer.h
+..\output\hw_control.o: ..\hardware\inc\key.h
+..\output\hw_control.o: ..\hardware\inc\display_manager.h
