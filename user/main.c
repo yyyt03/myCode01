@@ -50,6 +50,8 @@ char time_str[20]; // 时间显示缓存
 
 uint8_t prev_timer_setting_index = 0xFF; // 初始值设为无效值，确保首次一定更新
 uint8_t cursor_displayed = 0;            // 光标是否已显示的标志
+uint8_t mode_changed_flag = 0;               // 标记模式是否已更改
+SystemMode prev_work_mode = AUTO_MODE;      // 记录上一次工作模式
 
 // 全局变量
 TimerControl timer_setting = {8, 0, 19, 0, 150}; // 设置开始时间8:00，结束时间18:00，角度90度
@@ -321,6 +323,26 @@ int main(void)
                 }
         }
 
+        // 检查模式是否发生改变，特别是从定时模式切换到其他模式
+        if(prev_work_mode != work_mode) {
+            UsartPrintf(USART_DEBUG, "[MODE] Mode changed from %d to %d\r\n", prev_work_mode, work_mode);
+            
+            // 特别处理从定时模式切换到其他模式的情况，清除残留
+            if(prev_work_mode == TIMER_MODE && work_mode != TIMER_MODE) {
+                // 模式切换时进行彻底清理，清除可能的显示残留
+                OLED_ShowStr(0, LINE_LIGHT, (uint8_t *)"                    ", 2); // 清除第6行
+                OLED_ShowStr(0, LINE_SEND, (uint8_t *)"                    ", 1);  // 清除第8行
+                OLED_ShowStr(112, 4, (uint8_t *)"  ", 1);                        // 清除角度选择光标行
+                OLED_ShowStr(83, LINE_ANGLE, (uint8_t *)"        ", 1);          // 清除定时模式的设置角度
+                
+                // 确保重置光标跟踪变量
+                prev_timer_setting_index = 0xFF;
+                timer_setting_index = 0;
+            }
+            
+            // 更新上一个模式记录
+            prev_work_mode = work_mode;
+        }
         // 其余代码保持不变...
         key_Functoin();  
         if(key_num != 0)
